@@ -1,0 +1,54 @@
+endpoint: https://jira.intuit.com
+project: CTGWEB
+custom-commands:
+  - name: env
+    help: print the JIRA environment variables available to custom commands
+    script: |-
+      env | sort | grep JIRA
+  - name: print-project
+    help: print the name of the configured project
+    script: "echo $JIRA_PROJECT"
+  - name: jira-path
+    help: print the path the jira command that is running this alias
+    script: |-
+      echo {{jira}}
+  - name: mine
+    help: display issues assigned to me
+    script: |-
+      if [ -n "$JIRA_PROJECT" ]; then
+          # if `project: ...` configured just list the issues for current project
+          {{jira}} list --template table --query "resolution = unresolved and assignee=currentuser() and project = $JIRA_PROJECT ORDER BY priority asc, created"
+      else
+          # otherwise list issues for all project
+          {{jira}} list --template table --query "resolution = unresolved and assignee=currentuser() ORDER BY priority asc, created"
+      fi
+  - name: release
+    help: display stories related to a release
+    script: |-
+       {{jira}} list --template=table --query "project = $JIRA_PROJECT AND issuetype in (Bug, Story){{if options.fixversion}} AND fixversion=\"{{options.fixversion}}\"{{end}} AND component = BMX"
+    options:
+      - name: fixversion
+  - name: next-release
+    help: display stories related to a release
+    script: |-
+       {{jira}} list --template=table --query "project = $JIRA_PROJECT AND issuetype in (Bug, Story) AND fixVersion = earliestUnreleasedVersion($JIRA_PROJECT) AND component = BMX"
+  - name: branch-story
+    help: display issues for current git branch
+    script: |-
+      # if `project: ...` configured just list the issues for current project
+      {{jira}} view $(git rev-parse --abbrev-ref HEAD)
+  - name: who
+    help: who\'s working on what.
+    script: |-
+      {{jira}} list --template=table --query="assignee = {{if options.username}}{{options.username}}{{else}}currentuser(){{end}} AND (resolution = Unresolved OR status = \"Verify\") ORDER BY project, duedate, priority"
+    options:
+      - name: username
+  - name: mention
+    help: What issues have I been mentioned on in the last week?
+    script: |-
+      {{jira}} list --template=table --query="(summary ~ currentUser() OR description ~ currentUser() OR comment ~ currentUser()) AND updatedDate >= "-7d" ORDER BY updatedDate"
+  - name: sprint
+    help: What are all the things in my department right now that are not done?
+    script: |-
+      {{jira}} list --template=table --query="project = $JIRA_PROJECT AND issuetype in (Bug, Story) AND sprint IN openSprints() AND sprint NOT IN futureSprints() AND component = BMX"
+
